@@ -521,79 +521,46 @@ bool CreateCommandObjects()
 }
 bool CreateRootSignature()
 {
-    // ============================================================================
-    // НАСТРОЙКА КОРНЕВОЙ СИГНАТУРЫ (ROOT SIGNATURE)
-    // ============================================================================
-    // Корневая сигнатура — это "контракт" между C++ кодом и шейдерами. 
-    // Она объясняет видеокарте, какие ресурсы (текстуры, константные буферы)
-    // и в какие слоты (регистры) шейдера мы будем передавать.
-
-    // 1. Описываем дескриптор для нашего константного буфера матриц (CBV)
-    // Нам нужна одна матрица трансформации для куба, передаваемая в регистр b0.
+    // Описываем прямой корневой дескриптор для константного буфера матриц (CBV)
     D3D12_ROOT_PARAMETER rootParameters[1] = {};
 
-    // Настраиваем первый параметр как корневой дескриптор (Root Descriptor)
+    // Настраиваем как корневой дескриптор, а не таблицу!
     rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // Тип: Constant Buffer View
-    rootParameters[0].Descriptor.ShaderRegister = 0;                 // Регистр: b0 (соответствует cbuffer в HLSL)
-    rootParameters[0].Descriptor.RegisterSpace = 0;                  // Пространство регистров по умолчанию (0)
-    rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // Буфер нужен только Вершинному шейдеру
+    rootParameters[0].Descriptor.ShaderRegister = 0;                 // Регистр b0 в HLSL
+    rootParameters[0].Descriptor.RegisterSpace = 0;
+    rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX; // Виден только вершинному шейдеру
 
-    // 2. Описываем общие флаги для корневой сигнатуры.
-    // Флаг ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT обязателен, так как мы будем 
-    // передавать в конвейер массив вершин нашего куба через Vertex Buffer.
+    // Разрешаем входной ассемблер для передачи вершин куба
     D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
         D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
         D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
         D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
-        D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS; // Пиксельному шейдеру матрицы не нужны
+        D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
 
-    // 3. Компонуем описание корневой сигнатуры
     D3D12_ROOT_SIGNATURE_DESC rootSigDesc = {};
-    rootSigDesc.NumParameters = 1;               // У нас всего один параметр (наша матрица)
-    rootSigDesc.pParameters = rootParameters;    // Указатель на массив параметров
-    rootSigDesc.NumStaticSamplers = 0;           // Текстурных текстур/сэмплеров пока нет
+    rootSigDesc.NumParameters = 1; // 1 параметр
+    rootSigDesc.pParameters = rootParameters;
+    rootSigDesc.NumStaticSamplers = 0;
     rootSigDesc.pStaticSamplers = nullptr;
     rootSigDesc.Flags = rootSignatureFlags;
 
-    // 4. Сериализуем (кодируем) структуру описания в бинарный blob памяти
     ComPtr<ID3DBlob> signatureBlob;
     ComPtr<ID3DBlob> errorBlob;
-    HRESULT hr = D3D12SerializeRootSignature(
-        &rootSigDesc,
-        D3D_ROOT_SIGNATURE_VERSION_1,
-        &signatureBlob,
-        &errorBlob
-    );
-
+    HRESULT hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob, &errorBlob);
     if (FAILED(hr))
     {
-        if (errorBlob)
-        {
-            // Если сериализация не удалась, выводим ошибку компилятора в консоль
-            std::cout << "Ошибка сериализации Root Signature: "
-                << (char*)errorBlob->GetBufferPointer() << "\n";
-        }
+        if (errorBlob) std::cout << "Ошибка сериализации Root Sig: " << (char*)errorBlob->GetBufferPointer() << "\n";
         return false;
     }
 
-    // 5. Создаем физический объект Корневой Сигнатуры на видеокарте
-    hr = g_Device->CreateRootSignature(
-        0,
-        signatureBlob->GetBufferPointer(),
-        signatureBlob->GetBufferSize(),
-        IID_PPV_ARGS(&g_RootSignature)
-    );
+    hr = g_Device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&g_RootSignature));
+    if (FAILED(hr)) return false;
 
-    if (FAILED(hr))
-    {
-        std::cout << "Ошибка: Не удалось создать Root Signature на устройстве!\n";
-        return false;
-    }
-
-    std::cout << "DirectX 12: Корневая сигнатура (контракт с шейдерами) успешно создана.\n";
+    std::cout << "DirectX 12: Корневая сигнатура (прямой CBV) успешно создана.\n";
     return true;
 }
+
 bool CreatePipelineStateObject()
 {
     // ИСПРАВЛЕНО: Добавлена буква D в название интерфейса ID3DBlob
@@ -956,45 +923,30 @@ void WaitForGpu()
 }
 void UpdateScene()
 {
-    // ============================================================================
-    // 1. РАСЧЕТ УГЛА ВРАЩЕНИЯ КУБА (ЗАВИСИТ ОТ ВРЕМЕНИ)
-    // ============================================================================
-    // Используем статический счетчик времени, чтобы куб крутился плавно
+    // 1. Вращение
     static float angle = 0.0f;
-    angle += 0.0005f; // Скорость вращения куба
-    if (angle > 360.0f) angle = 0.0f;
-
-    // ============================================================================
-    // 2. ИНИЦИАЛИЗАЦИЯ И РАСЧЕТ ТРЕХМЕРНЫХ МАТРИЦ (DirectXMath)
-    // ============================================================================
-    // Мировая матрица (World): Вращаем куб по двум осям (X и Y) одновременно
+    angle += 0.0005f;
     XMMATRIX rotationX = XMMatrixRotationX(angle);
     XMMATRIX rotationY = XMMatrixRotationY(angle * 0.5f);
     g_WorldMatrix = rotationX * rotationY;
 
-    // Видовая матрица (View): Ставим камеру в точку (0, 0, -3) и направляем в центр сцены (0, 0, 0)
-    XMVECTOR eyePosition = XMVectorSet(0.0f, 0.0f, -3.0f, 0.0f); // Позиция глаза/камеры
-    XMVECTOR focusPoint = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);   // Куда смотрим
-    XMVECTOR upDirection = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);  // Где у камеры "верх"
+    // 2. Камера (Отодвигаем камеру на -3 по оси Z и направляем ВПЕРЕД на куб в точку 0,0,0)
+    XMVECTOR eyePosition = XMVectorSet(0.0f, 0.0f, -3.0f, 0.0f);
+    XMVECTOR focusPoint = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+    XMVECTOR upDirection = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
     g_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
 
-    // Матрица проекции (Projection): Настраиваем перспективу (угол обзора 45 градусов, пропорции экрана)
+    // 3. Перспектива (NearZ ОБЯЗАН быть строго положительным, например 0.1f)
     float aspectRatio = static_cast<float>(g_Width) / static_cast<float>(g_Height);
     g_ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(45.0f), aspectRatio, 0.1f, 100.0f);
 
-    // ============================================================================
-    // 3. ОБЪЕДИНЕНИЕ МАТРИЦ В ОДНУ И ПЕРЕДАЧА НА GPU
-    // ============================================================================
-    // Перемножаем матрицы строго в порядке: Мир * Вид * Проекция (WVP)
-    // Матрицы необходимо транспонировать (XMMatrixTranspose), так как
-    // в C++ они хранятся по строкам, а шейдеры HLSL ожидают их по столбцам.
+    // 4. Сборка WVP
     XMMATRIX wvpMatrix = g_WorldMatrix * g_ViewMatrix * g_ProjectionMatrix;
-
     ConstantBufferWVP cbWvp;
     cbWvp.wvp = XMMatrixTranspose(wvpMatrix);
 
-    // Копируем обновленную матрицу в видеопамять через наш постоянный CPU-указатель
     memcpy(g_pCbvDataBegin, &cbWvp, sizeof(cbWvp));
+
 }
 void RenderScene()
 {
@@ -1047,10 +999,13 @@ void RenderScene()
     // 3. ОТРИСОВКА 3D-КУБА
     // ============================================================================
     // Устанавливаем корневую сигнатуру (контракт)
+   // Устанавливаем сигнатуру
     g_CommandList->SetGraphicsRootSignature(g_RootSignature.Get());
 
-    // Передаем GPU-адрес нашего константного буфера с матрицами в регистр b0 (параметр 0)
+    // Прямо передаем GPU адрес константного буфера в параметр 0 (без всяких куч и таблиц дескрипторов)
     g_CommandList->SetGraphicsRootConstantBufferView(0, g_ConstantBuffer->GetGPUVirtualAddress());
+
+
 
     // Говорим видеокарте, как интерпретировать вершины (рисуем треугольниками)
     g_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
