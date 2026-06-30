@@ -879,27 +879,33 @@ void WaitForGpu()
 }
 void UpdateScene()
 {
-    // 1. Сбрасываем вращение (куб неподвижно стоит в центре)
-    g_WorldMatrix = XMMatrixIdentity();
+    static float angle = 0.0f;
+    angle += 0.005f; // Немного ускорим, чтобы куб бодро крутился
 
-    // 2. Ставим камеру ровно по центру, но отодвигаем назад на -3 по оси Z
+    XMMATRIX rotationX = XMMatrixRotationX(angle);
+    XMMATRIX rotationY = XMMatrixRotationY(angle * 0.5f);
+    g_WorldMatrix = rotationX * rotationY; // Расчет мирового положения
+
+    // Камера стоит в (0, 0, -3) и смотрит в центр (0, 0, 0)
     XMVECTOR eyePosition = XMVectorSet(0.0f, 0.0f, -3.0f, 0.0f);
     XMVECTOR focusPoint = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
     XMVECTOR upDirection = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
     g_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
 
-    // 3. ИСПРАВЛЕНИЕ: NearZ ОБЯЗАН быть строго положительным (0.1f вместо -0.1f)
+    // Перспектива с правильным положительным NearZ = 0.1f
     float aspectRatio = static_cast<float>(g_Width) / static_cast<float>(g_Height);
     g_ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(45.0f), aspectRatio, 0.1f, 100.0f);
 
-    // 4. Перемножаем и транспонируем для HLSL
+    // Итоговая матрица
     XMMATRIX wvpMatrix = g_WorldMatrix * g_ViewMatrix * g_ProjectionMatrix;
+
     ConstantBufferWVP cbWvp;
     cbWvp.wvp = XMMatrixTranspose(wvpMatrix);
 
-    // Копируем в память GPU
+    // Копируем на видеокарту
     memcpy(g_pCbvDataBegin, &cbWvp, sizeof(cbWvp));
 }
+
 
 // ============================================================================
 // ОТРЕСОВКА КАДРА (ЗАПИСЬ КОМАНД И ОТПРАВКА НА GPU)
