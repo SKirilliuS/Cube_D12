@@ -668,7 +668,7 @@ bool CreatePipelineStateObject()
     // ИСПРАВЛЕНО: Альтернативный способ заполнения дефолтных настроек БЕЗ d3dx12.h на случай его отсутствия
     // Настройка растеризатора
     psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
     psoDesc.RasterizerState.FrontCounterClockwise = FALSE;
     psoDesc.RasterizerState.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
     psoDesc.RasterizerState.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
@@ -720,7 +720,7 @@ bool CreateCubeGeometry()
     // 1. ОПРЕДЕЛЕНИЕ ДАННЫХ КУБА (Если они еще не объявлены глобально)
     // ============================================================================
     // 8 вершин куба (позиция X,Y,Z и цвет R,G,B,A)
-    Vertex cubeVertices[] = {
+   /* Vertex cubeVertices[] = {
         { XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f) }, // 0
         { XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) }, // 1
         { XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) }, // 2
@@ -730,8 +730,7 @@ bool CreateCubeGeometry()
         { XMFLOAT3(0.5f,  0.5f, -0.5f), XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f) }, // 6
         { XMFLOAT3(0.5f,  0.5f,  0.5f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) }  // 7
     };
-
-    // Индексы для сборки 12 треугольников (по 2 на каждую из 6 граней куба)
+    / Индексы для сборки 12 треугольников (по 2 на каждую из 6 граней куба)
     WORD cubeIndices[] = {
         0,2,1, 1,2,3,  // Левая
         4,5,6, 5,7,6,  // Правая
@@ -739,7 +738,17 @@ bool CreateCubeGeometry()
         2,6,3, 3,6,7,  // Верхняя
         0,4,2, 4,6,2,  // Передняя
         1,3,5, 3,7,5   // Задняя
+    };*/
+    // Тестовый треугольник по центру экрана
+    Vertex cubeVertices[] = {
+        { XMFLOAT3(0.0f,  0.5f, 0.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) }, // Верх (Красный)
+        { XMFLOAT3(0.5f, -0.5f, 0.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) }, // Право (Зеленый)
+        { XMFLOAT3(-0.5f, -0.5f, 0.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) }  // Лево (Синий)
     };
+
+    // Всего один треугольник (3 индекса вместо 36)
+    WORD cubeIndices[] = { 0, 1, 2 };
+  
 
     UINT vertexBufferSize = sizeof(cubeVertices);
     UINT indexBufferSize = sizeof(cubeIndices);
