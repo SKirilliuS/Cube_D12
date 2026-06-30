@@ -5,6 +5,9 @@
 #include <wrl.h>
 #include <iostream>
 #include <DirectXMath.h> // Математика для 3D-трансформаций
+// Подключаем d3dx12.h напрямую из системных шаблонов Visual Studio 2022
+#include "C:\Users\Пользователь\Downloads\LearningDirectX12-0.0.1\LearningDirectX12-0.0.1\Tutorial1\inc\d3dx12.h"
+
 //#include "shaders.hlsl"
 // Подключаем необходимые библиотеки через pragma
 #pragma comment(lib, "d3d12.lib")
@@ -683,11 +686,8 @@ bool CreatePipelineStateObject()
 
 bool CreateCubeGeometry()
 {
-    // ============================================================================
-    // 1. ОПРЕДЕЛЕНИЕ ДАННЫХ КУБА (Если они еще не объявлены глобально)
-    // ============================================================================
-    // 8 вершин куба (позиция X,Y,Z и цвет R,G,B,A)
-   /* Vertex cubeVertices[] = {
+    // 1. НАПРАМУЮ ОБЪЯВЛЯЕМ ДАННЫХ КУБА ВНУТРИ ФУНКЦИИ
+    Vertex cubeVertices[] = {
         { XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f) }, // 0
         { XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) }, // 1
         { XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) }, // 2
@@ -697,34 +697,23 @@ bool CreateCubeGeometry()
         { XMFLOAT3(0.5f,  0.5f, -0.5f), XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f) }, // 6
         { XMFLOAT3(0.5f,  0.5f,  0.5f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) }  // 7
     };
-    / Индексы для сборки 12 треугольников (по 2 на каждую из 6 граней куба)
+
     WORD cubeIndices[] = {
-        0,2,1, 1,2,3,  // Левая
-        4,5,6, 5,7,6,  // Правая
-        0,1,4, 1,5,4,  // Нижняя
-        2,6,3, 3,6,7,  // Верхняя
-        0,4,2, 4,6,2,  // Передняя
-        1,3,5, 3,7,5   // Задняя
-    };*/
-    // Тестовый треугольник по центру экрана
-    Vertex cubeVertices[] = {
-        { XMFLOAT3(0.0f,  0.5f, 0.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) }, // Верх (Красный)
-        { XMFLOAT3(0.5f, -0.5f, 0.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) }, // Право (Зеленый)
-        { XMFLOAT3(-0.5f, -0.5f, 0.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) }  // Лево (Синий)
+        0,2,1, 1,2,3,  // Левая грань
+        4,5,6, 5,7,6,  // Правая грань
+        0,1,4, 1,5,4,  // Нижняя грань
+        2,6,3, 3,6,7,  // Верхняя грань
+        0,4,2, 4,6,2,  // Передняя грань
+        1,3,5, 3,7,5   // Задняя грань
     };
 
-    // Всего один треугольник (3 индекса вместо 36)
-    WORD cubeIndices[] = { 0, 1, 2 };
-  
-
+    // Вычисляем точный размер локальных массивов
     UINT vertexBufferSize = sizeof(cubeVertices);
     UINT indexBufferSize = sizeof(cubeIndices);
 
-    // Вспомогательная структура для свойств кучи (Upload-тип для загрузки с CPU)
     D3D12_HEAP_PROPERTIES uploadHeapProps = {};
     uploadHeapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
 
-    // Вспомогательная структура описания буфера
     D3D12_RESOURCE_DESC bufferDesc = {};
     bufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
     bufferDesc.Alignment = 0;
@@ -737,76 +726,43 @@ bool CreateCubeGeometry()
     bufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     bufferDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-    // ============================================================================
-    // 2. СОЗДАНИЕ И ЗАПОЛНЕНИЕ ВЕРШИННОГО БУФЕРА (VERTEX BUFFER)
-    // ============================================================================
-    bufferDesc.Width = vertexBufferSize; // Задаем размер памяти под вершины
-
+    // 2. СОЗДАНИЕ VERTEX BUFFER
+    bufferDesc.Width = vertexBufferSize;
     HRESULT hr = g_Device->CreateCommittedResource(
-        &uploadHeapProps,
-        D3D12_HEAP_FLAG_NONE,
-        &bufferDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ,
-        nullptr,
-        IID_PPV_ARGS(&g_VertexBuffer)
-    );
-
-    if (FAILED(hr))
-    {
-        std::cout << "Ошибка: Не удалось выделить память под Vertex Buffer!\n";
-        return false;
-    }
-
-    // Копируем данные из ОЗУ (CPU) в созданный буфер видеокарты (GPU)
-    UINT8* pVertexDataBegin = nullptr;
-    D3D12_RANGE readRange = { 0, 0 }; // Мы не собираемся читать этот буфер на CPU
-    hr = g_VertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+        &uploadHeapProps, D3D12_HEAP_FLAG_NONE, &bufferDesc,
+        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&g_VertexBuffer));
     if (FAILED(hr)) return false;
 
-    memcpy(pVertexDataBegin, cubeVertices, vertexBufferSize);
+    UINT8* pVertexDataBegin = nullptr;
+    D3D12_RANGE readRange = { 0, 0 };
+    g_VertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+    memcpy(pVertexDataBegin, cubeVertices, vertexBufferSize); // Копируем локальный массив
     g_VertexBuffer->Unmap(0, nullptr);
 
-    // Настраиваем View (представление) вершинного буфера для конвейера
     g_VertexBufferView.BufferLocation = g_VertexBuffer->GetGPUVirtualAddress();
-    g_VertexBufferView.StrideInBytes = sizeof(Vertex); // Размер одной вершины
-    g_VertexBufferView.SizeInBytes = vertexBufferSize;  // Общий размер буфера
+    g_VertexBufferView.StrideInBytes = sizeof(Vertex);
+    g_VertexBufferView.SizeInBytes = vertexBufferSize;
 
-    // ============================================================================
-    // 3. СОЗДАНИЕ И ЗАПОЛНЕНИЕ ИНДЕКСНОГО БУФЕРА (INDEX BUFFER)
-    // ============================================================================
-    bufferDesc.Width = indexBufferSize; // Задаем размер памяти под индексы
-
+    // 3. СОЗДАНИЕ INDEX BUFFER
+    bufferDesc.Width = indexBufferSize;
     hr = g_Device->CreateCommittedResource(
-        &uploadHeapProps,
-        D3D12_HEAP_FLAG_NONE,
-        &bufferDesc,
-        D3D12_RESOURCE_STATE_GENERIC_READ,
-        nullptr,
-        IID_PPV_ARGS(&g_IndexBuffer)
-    );
-
-    if (FAILED(hr))
-    {
-        std::cout << "Ошибка: Не удалось выделить память под Index Buffer!\n";
-        return false;
-    }
-
-    // Копируем индексные данные на GPU
-    UINT8* pIndexDataBegin = nullptr;
-    hr = g_IndexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin));
+        &uploadHeapProps, D3D12_HEAP_FLAG_NONE, &bufferDesc,
+        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&g_IndexBuffer));
     if (FAILED(hr)) return false;
 
-    memcpy(pIndexDataBegin, cubeIndices, indexBufferSize);
+    UINT8* pIndexDataBegin = nullptr;
+    g_IndexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin));
+    memcpy(pIndexDataBegin, cubeIndices, indexBufferSize); // Копируем локальный массив
     g_IndexBuffer->Unmap(0, nullptr);
 
-    // Настраиваем View (представление) индексного буфера
     g_IndexBufferView.BufferLocation = g_IndexBuffer->GetGPUVirtualAddress();
-    g_IndexBufferView.Format = DXGI_FORMAT_R16_UINT; // WORD в C++ соответствует 16-битному инту
+    g_IndexBufferView.Format = DXGI_FORMAT_R16_UINT;
     g_IndexBufferView.SizeInBytes = indexBufferSize;
 
-    std::cout << "DirectX 12: Геометрия куба (вершины и индексы) успешно загружена на GPU.\n";
+    std::cout << "DirectX 12: Геометрия куба полностью изолирована и успешно загружена.\n";
     return true;
 }
+
 bool CreateConstantBuffer()
 {
     // Размер константного буфера должен быть кратен 256 байтам!
@@ -923,128 +879,85 @@ void WaitForGpu()
 }
 void UpdateScene()
 {
-    // 1. Вращение
-    static float angle = 0.0f;
-    angle += 0.0005f;
-    XMMATRIX rotationX = XMMatrixRotationX(angle);
-    XMMATRIX rotationY = XMMatrixRotationY(angle * 0.5f);
-    g_WorldMatrix = rotationX * rotationY;
+    // 1. Сбрасываем вращение (куб неподвижно стоит в центре)
+    g_WorldMatrix = XMMatrixIdentity();
 
-    // 2. Камера (Отодвигаем камеру на -3 по оси Z и направляем ВПЕРЕД на куб в точку 0,0,0)
+    // 2. Ставим камеру ровно по центру, но отодвигаем назад на -3 по оси Z
     XMVECTOR eyePosition = XMVectorSet(0.0f, 0.0f, -3.0f, 0.0f);
     XMVECTOR focusPoint = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
     XMVECTOR upDirection = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
     g_ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
 
-    // 3. Перспектива (NearZ ОБЯЗАН быть строго положительным, например 0.1f)
+    // 3. ИСПРАВЛЕНИЕ: NearZ ОБЯЗАН быть строго положительным (0.1f вместо -0.1f)
     float aspectRatio = static_cast<float>(g_Width) / static_cast<float>(g_Height);
     g_ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(45.0f), aspectRatio, 0.1f, 100.0f);
 
-    // 4. Сборка WVP
+    // 4. Перемножаем и транспонируем для HLSL
     XMMATRIX wvpMatrix = g_WorldMatrix * g_ViewMatrix * g_ProjectionMatrix;
     ConstantBufferWVP cbWvp;
     cbWvp.wvp = XMMatrixTranspose(wvpMatrix);
 
+    // Копируем в память GPU
     memcpy(g_pCbvDataBegin, &cbWvp, sizeof(cbWvp));
-
 }
+
+// ============================================================================
+// ОТРЕСОВКА КАДРА (ЗАПИСЬ КОМАНД И ОТПРАВКА НА GPU)
+// ============================================================================
 void RenderScene()
 {
-    HRESULT hr;
+    // 1. Сброс аллокатора и списка команд
+    g_CommandAllocator->Reset();
+    g_CommandList->Reset(g_CommandAllocator.Get(), g_PipelineState.Get());
 
-    // ============================================================================
-    // 1. ПОДГОТОВКА К ЗАПИСИ КОМАНД
-    // ============================================================================
-    // Сбрасываем аллокатор и список команд. Это очищает старую память кадра 
-    // и открывает список для записи новых команд.
-    hr = g_CommandAllocator->Reset();
-    if (FAILED(hr)) return;
+    // 2. Переход буфера из PRESENT в RENDER_TARGET (Замена капризного CD3DX12)
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+    barrier.Transition.pResource = g_RenderTargets[g_FrameIndex].Get();
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-    // Привязываем список команд к очищенному аллокатору и задаем начальное состояние конвейера (PSO)
-    hr = g_CommandList->Reset(g_CommandAllocator.Get(), g_PipelineState.Get());
-    if (FAILED(hr)) return;
+    g_CommandList->ResourceBarrier(1, &barrier);
 
-    // ============================================================================
-    // 2. НАСТРОЙКА ЭКРАНА И БАРЬЕРОВ РЕСУРСОВ
-    // ============================================================================
-    // Переводим текущий задний буфер из состояния «Отображение на экране» (PRESENT) 
-    // в состояние «Окно отрисовки» (RENDER_TARGET), чтобы видеокарта могла в него писать.
-    D3D12_RESOURCE_BARRIER barrierPresentToRender = {};
-    barrierPresentToRender.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrierPresentToRender.Transition.pResource = g_RenderTargets[g_FrameIndex].Get();
-    barrierPresentToRender.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-    barrierPresentToRender.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    barrierPresentToRender.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    // 3. Настройка Viewport, Scissor Rect и Render Target
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
+        g_RtvHeap->GetCPUDescriptorHandleForHeapStart(),
+        g_FrameIndex,
+        g_RtvDescriptorSize
+    );
 
-    g_CommandList->ResourceBarrier(1, &barrierPresentToRender);
+    CD3DX12_VIEWPORT viewport(0.0f, 0.0f, static_cast<float>(g_Width), static_cast<float>(g_Height));
+    CD3DX12_RECT scissorRect(0, 0, g_Width, g_Height);
 
-    // Получаем CPU-адрес дескриптора текущего заднего буфера для очистки и вывода
-    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = g_RtvHeap->GetCPUDescriptorHandleForHeapStart();
-    rtvHandle.ptr += g_FrameIndex * g_RtvDescriptorSize;
-
-    // Настраиваем область просмотра (Viewport) и ножницы (Scissor Rect) на весь размер окна
-    D3D12_VIEWPORT viewport = { 0.0f, 0.0f, static_cast<float>(g_Width), static_cast<float>(g_Height), 0.0f, 1.0f };
-    D3D12_RECT scissorRect = { 0, 0, g_Width, g_Height };
     g_CommandList->RSSetViewports(1, &viewport);
     g_CommandList->RSSetScissorRects(1, &scissorRect);
-
-    // Указываем, куда именно мы будем рисовать (наш текущий задний буфер кадра)
     g_CommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
 
-    // Очищаем экран в красивый темно-синий цвет (RGBA)
+    // 4. Очистка экрана и отрисовка
     const float clearColor[] = { 0.1f, 0.2f, 0.4f, 1.0f };
     g_CommandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-
-    // ============================================================================
-    // 3. ОТРИСОВКА 3D-КУБА
-    // ============================================================================
-    // Устанавливаем корневую сигнатуру (контракт)
-   // Устанавливаем сигнатуру
     g_CommandList->SetGraphicsRootSignature(g_RootSignature.Get());
-
-    // Прямо передаем GPU адрес константного буфера в параметр 0 (без всяких куч и таблиц дескрипторов)
     g_CommandList->SetGraphicsRootConstantBufferView(0, g_ConstantBuffer->GetGPUVirtualAddress());
 
-
-
-    // Говорим видеокарте, как интерпретировать вершины (рисуем треугольниками)
     g_CommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-    // Привязываем буфер вершин и буфер индексов нашего куба
     g_CommandList->IASetVertexBuffers(0, 1, &g_VertexBufferView);
     g_CommandList->IASetIndexBuffer(&g_IndexBufferView);
 
-    // Вызываем команду отрисовки куба по индексам. 
-    // 36 — это количество индексов куба (6 граней * 2 треугольника * 3 вершины)
     g_CommandList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
-    // ============================================================================
-    // 4. ЗАВЕРШЕНИЕ КАДРА И ОТПРАВКА НА GPU
-    // ============================================================================
-    // Возвращаем состояние буфера обратно из RENDER_TARGET в PRESENT, чтобы его можно было показать
-    D3D12_RESOURCE_BARRIER barrierRenderToPresent = barrierPresentToRender;
-    barrierRenderToPresent.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    barrierRenderToPresent.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+    // 5. Переход RENDER_TARGET обратно в PRESENT и выполнение
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 
-    g_CommandList->ResourceBarrier(1, &barrierRenderToPresent);
+    g_CommandList->ResourceBarrier(1, &barrier);
 
-    // Официально закрываем список команд. Запись завершена!
-    hr = g_CommandList->Close();
-    if (FAILED(hr)) return;
-
-    // Передаем записанный список команд нашей командной очереди на исполнение в GPU
+    g_CommandList->Close();
     ID3D12CommandList* ppCommandLists[] = { g_CommandList.Get() };
     g_CommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
-    // Меняем передний и задний буферы местами (выводим картинку на экран Windows)
-    // Параметр 1 включает вертикальную синхронизацию (V-Sync)
-    hr = g_SwapChain->Present(1, 0);
-    if (FAILED(hr)) return;
-
-    // Синхронизируем CPU и GPU: ждем, пока видеокарта полностью отрисует этот кадр,
-    // перед тем как процессор начнет готовить следующий.
-    WaitForGpu();
-
-    // Обновляем индекс буфера для следующего кадра (переключаемся между 0 и 1)
+    g_SwapChain->Present(1, 0);
+    WaitForGpu(); // Синхронизация CPU-GPU
     g_FrameIndex = g_SwapChain->GetCurrentBackBufferIndex();
 }
